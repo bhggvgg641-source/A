@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://back-h1e7.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'; // استخدام localhost:8000 لبيئة التطوير
 
 export const fetchRecommendations = async (userId) => {
     try {
