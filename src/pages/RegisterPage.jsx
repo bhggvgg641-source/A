@@ -73,7 +73,7 @@ const RegisterPage = ({ setUser }) => {
       data.append('height', formData.height);
       data.append('weight', formData.weight);
       data.append('body_type', formData.bodyType);
-      data.append('skin_tone', formData.skinTone);
+      data.append('skin_color', formData.skinTone);
       data.append('style_preference', formData.style);
       data.append('budget', formData.budget);
       // إضافة ملف الصورة
