@@ -1,96 +1,92 @@
-import { useState, useEffect } from 'react';
-import { Heart, MessageCircle, Share2, Eye, ShoppingBag } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Heart, MessageCircle, Share2, Eye, ShoppingBag, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
-
-// Mock data for fashion recommendations
-const mockRecommendations = [
-  {
-    id: 1,
-    image: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&h=600&fit=crop',
-    title: 'فستان صيفي أنيق',
-    brand: 'Zara',
-    price: '$89',
-    likes: 1250,
-    comments: 89,
-    description: 'فستان صيفي مثالي للمناسبات الخاصة، مصنوع من القطن الطبيعي',
-    tags: ['صيفي', 'أنيق', 'مناسبات'],
-    aiMatch: 95,
-    user: {
-      name: 'سارة أحمد',
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face'
-    }
-  },
-  {
-    id: 2,
-    image: 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=400&h=600&fit=crop',
-    title: 'بدلة رجالية كلاسيكية',
-    brand: 'Hugo Boss',
-    price: '$299',
-    likes: 890,
-    comments: 45,
-    description: 'بدلة رجالية كلاسيكية مثالية للعمل والمناسبات الرسمية',
-    tags: ['رسمي', 'كلاسيكي', 'عمل'],
-    aiMatch: 88,
-    user: {
-      name: 'محمد علي',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face'
-    }
-  },
-  {
-    id: 3,
-    image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=600&fit=crop',
-    title: 'حذاء رياضي عصري',
-    brand: 'Nike',
-    price: '$120',
-    likes: 2100,
-    comments: 156,
-    description: 'حذاء رياضي مريح وعصري، مثالي للأنشطة اليومية والرياضة',
-    tags: ['رياضي', 'مريح', 'عصري'],
-    aiMatch: 92,
-    user: {
-      name: 'ليلى حسن',
-      avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face'
-    }
-  }
-];
+import { fetchRecommendations } from '@/lib/api'; // استيراد دالة جلب التوصيات الجديدة
 
 const HomePage = ({ user }) => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState(null);
+
+  // يجب أن يكون user.id متاحًا بعد تسجيل الدخول
+  const userId = user?.id || 1; // استخدام معرف وهمي إذا لم يكن المستخدم مسجلاً للدخول
+
+  const loadRecommendations = useCallback(async (pageNumber) => {
+    if (!hasMore && pageNumber > 1) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await fetchRecommendations(userId, pageNumber);
+      
+      if (data && data.recommendations) {
+        setRecommendations(prev => pageNumber === 1 ? data.recommendations : [...prev, ...data.recommendations]);
+        // افتراض أن الواجهة الخلفية ترسل عدد العناصر في الصفحة
+        // إذا كان عدد العناصر أقل من 5 (الحد الأقصى للصفحة)، فهذا يعني أنه لا يوجد المزيد
+        setHasMore(data.recommendations.length === 5); 
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Error loading recommendations:", err);
+      setError("فشل في تحميل التوصيات. يرجى المحاولة لاحقًا.");
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, hasMore]);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setRecommendations(mockRecommendations);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    loadRecommendations(1);
+  }, [loadRecommendations]);
+
+  const handleLoadMore = () => {
+    if (!loading && hasMore) {
+      setPage(prev => prev + 1);
+      loadRecommendations(page + 1);
+    }
+  };
 
   const handleLike = (id) => {
+    // يجب أن يتم إرسال طلب API هنا لتسجيل الإعجاب
     setRecommendations(prev => 
       prev.map(item => 
         item.id === id 
-          ? { ...item, likes: item.likes + 1, liked: !item.liked }
+          ? { ...item, likes: item.likes + (item.liked ? -1 : 1), liked: !item.liked }
           : item
       )
     );
   };
 
-  if (loading) {
+  if (loading && page === 1) {
     return (
       <div className="max-w-md mx-auto p-4 space-y-6">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <div className="h-96 bg-gray-200 rounded-t-lg"></div>
-            <div className="p-4 space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            </div>
-          </Card>
-        ))}
+        <div className="text-center text-gray-500">
+          <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+          جاري تحميل التوصيات...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-md mx-auto p-4 text-center text-red-500">
+        <p>{error}</p>
+        <Button onClick={() => loadRecommendations(1)} className="mt-4">إعادة المحاولة</Button>
+      </div>
+    );
+  }
+
+  if (recommendations.length === 0) {
+    return (
+      <div className="max-w-md mx-auto p-4 text-center text-gray-500">
+        <p>لا توجد توصيات متاحة حاليًا.</p>
       </div>
     );
   }
@@ -112,23 +108,23 @@ const HomePage = ({ user }) => {
             {/* User Info */}
             <div className="flex items-center p-4 pb-2">
               <img 
-                src={item.user.avatar} 
-                alt={item.user.name}
+                src={item.user_avatar || user.avatar} // استخدام صورة المستخدم الذي نشر أو صورة المستخدم الحالي
+                alt={item.user_name || user.name}
                 className="w-8 h-8 rounded-full mr-3"
               />
               <div className="flex-1">
-                <p className="font-semibold text-sm">{item.user.name}</p>
-                <p className="text-xs text-gray-500">منذ ساعتين</p>
+                <p className="font-semibold text-sm">{item.user_name || user.name}</p>
+                <p className="text-xs text-gray-500">منذ {item.time_ago || 'ساعتين'}</p>
               </div>
               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {item.aiMatch}% مطابقة
+                {item.ai_match || 90}% مطابقة
               </Badge>
             </div>
 
             {/* Product Image */}
             <div className="relative">
               <img 
-                src={item.image} 
+                src={item.image_url} 
                 alt={item.title}
                 className="w-full h-96 object-cover"
               />
@@ -174,7 +170,7 @@ const HomePage = ({ user }) => {
 
             {/* Engagement Info */}
             <div className="px-4 pb-2">
-              <p className="text-sm font-semibold">{item.likes.toLocaleString()} إعجاب</p>
+              <p className="text-sm font-semibold">{item.likes?.toLocaleString() || 0} إعجاب</p>
             </div>
 
             {/* Description */}
@@ -187,7 +183,7 @@ const HomePage = ({ user }) => {
             {/* Tags */}
             <div className="px-4 pb-3">
               <div className="flex flex-wrap gap-1">
-                {item.tags.map((tag, index) => (
+                {item.tags?.map((tag, index) => (
                   <span key={index} className="text-blue-500 text-sm">
                     #{tag}
                   </span>
@@ -198,7 +194,7 @@ const HomePage = ({ user }) => {
             {/* Comments Preview */}
             <div className="px-4 pb-4">
               <Button variant="ghost" size="sm" className="text-gray-500 p-0 h-auto">
-                عرض جميع التعليقات الـ {item.comments}
+                عرض جميع التعليقات الـ {item.comments || 0}
               </Button>
             </div>
           </Card>
@@ -207,13 +203,29 @@ const HomePage = ({ user }) => {
 
       {/* Load More */}
       <div className="p-4 text-center">
-        <Button variant="outline" className="w-full">
-          تحميل المزيد من التوصيات
-        </Button>
+        {hasMore && (
+          <Button 
+            variant="outline" 
+            className="w-full" 
+            onClick={handleLoadMore}
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin ml-2" />
+                جاري التحميل...
+              </>
+            ) : (
+              'تحميل المزيد من التوصيات'
+            )}
+          </Button>
+        )}
+        {!hasMore && recommendations.length > 0 && (
+          <p className="text-sm text-gray-500">لا توجد المزيد من التوصيات.</p>
+        )}
       </div>
     </div>
   );
 };
 
 export default HomePage;
-

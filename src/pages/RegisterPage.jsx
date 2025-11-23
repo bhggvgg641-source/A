@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Mail, Lock, User, Eye, EyeOff, Phone, Calendar } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Phone, Image, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useNavigate } from 'react-router-dom';
+import { registerUser } from '@/lib/api'; // استيراد دالة التسجيل الجديدة
 
 const RegisterPage = ({ setUser }) => {
   const [step, setStep] = useState(1);
@@ -15,6 +16,7 @@ const RegisterPage = ({ setUser }) => {
     password: '',
     confirmPassword: '',
     phone: '',
+    profilePicture: null, // حقل جديد لملف الصورة
     
     // Step 2: Personal Details
     age: '',
@@ -30,9 +32,12 @@ const RegisterPage = ({ setUser }) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
   const handleNext = () => {
+    setError(null);
+    // يمكنك إضافة منطق للتحقق من صحة الحقول هنا قبل الانتقال للخطوة التالية
     if (step < 3) {
       setStep(step + 1);
     } else {
@@ -42,20 +47,59 @@ const RegisterPage = ({ setUser }) => {
 
   const handleRegister = async () => {
     setLoading(true);
+    setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
+    if (formData.password !== formData.confirmPassword) {
+      setError("كلمتا المرور غير متطابقتين.");
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.profilePicture) {
+      setError("الرجاء رفع صورة الملف الشخصي.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = new FormData();
+      // إضافة البيانات النصية
+      data.append('username', formData.name);
+      data.append('email', formData.email);
+      data.append('password', formData.password);
+      data.append('phone', formData.phone);
+      data.append('age', formData.age);
+      data.append('gender', formData.gender);
+      data.append('height', formData.height);
+      data.append('weight', formData.weight);
+      data.append('body_type', formData.bodyType);
+      data.append('skin_tone', formData.skinTone);
+      data.append('style_preference', formData.style);
+      data.append('budget', formData.budget);
+      // إضافة ملف الصورة
+      data.append('profile_picture', formData.profilePicture);
+
+      const response = await registerUser(data);
+
+      // افتراض أن الواجهة الخلفية تعيد بيانات المستخدم عند التسجيل الناجح
       const user = {
-        id: Date.now(),
-        ...formData,
-        avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
+        id: response.id,
+        name: response.username,
+        email: response.email,
+        avatar: response.profile_picture, // يجب أن تعيد الواجهة الخلفية رابط الصورة
+        ...response
       };
       
       setUser(user);
       localStorage.setItem('fashionAI_user', JSON.stringify(user));
-      setLoading(false);
       navigate('/');
-    }, 1500);
+
+    } catch (err) {
+      console.error("Registration failed:", err);
+      setError(err.message || "فشل التسجيل. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderStep1 = () => (
@@ -154,6 +198,28 @@ const RegisterPage = ({ setUser }) => {
     <div className="space-y-4">
       <h2 className="text-xl font-semibold text-center mb-4">المعلومات الشخصية</h2>
       
+      {/* Profile Picture Upload */}
+      <div>
+        <label className="block text-sm font-medium mb-2">صورة الملف الشخصي (مطلوبة للتحليل)</label>
+        <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-purple-500 transition-colors">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => setFormData({...formData, profilePicture: e.target.files[0]})}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            required
+          />
+          {formData.profilePicture ? (
+            <p className="text-sm text-green-600">تم اختيار الملف: {formData.profilePicture.name}</p>
+          ) : (
+            <>
+              <Image size={24} className="mx-auto mb-2 text-gray-400" />
+              <p className="text-sm text-gray-600">انقر لرفع صورتك</p>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         {/* Age */}
         <div>
@@ -163,13 +229,14 @@ const RegisterPage = ({ setUser }) => {
             placeholder="25"
             value={formData.age}
             onChange={(e) => setFormData({...formData, age: e.target.value})}
+            required
           />
         </div>
 
         {/* Gender */}
         <div>
           <label className="block text-sm font-medium mb-2">الجنس</label>
-          <Select value={formData.gender} onValueChange={(value) => setFormData({...formData, gender: value})}>
+          <Select value={formData.gender} onValueChange={(value) => setFormData({...formData, gender: value})} required>
             <SelectTrigger>
               <SelectValue placeholder="اختر" />
             </SelectTrigger>
@@ -190,6 +257,7 @@ const RegisterPage = ({ setUser }) => {
             placeholder="170"
             value={formData.height}
             onChange={(e) => setFormData({...formData, height: e.target.value})}
+            required
           />
         </div>
 
@@ -201,6 +269,7 @@ const RegisterPage = ({ setUser }) => {
             placeholder="65"
             value={formData.weight}
             onChange={(e) => setFormData({...formData, weight: e.target.value})}
+            required
           />
         </div>
       </div>
@@ -208,7 +277,7 @@ const RegisterPage = ({ setUser }) => {
       {/* Body Type */}
       <div>
         <label className="block text-sm font-medium mb-2">نوع الجسم</label>
-        <Select value={formData.bodyType} onValueChange={(value) => setFormData({...formData, bodyType: value})}>
+        <Select value={formData.bodyType} onValueChange={(value) => setFormData({...formData, bodyType: value})} required>
           <SelectTrigger>
             <SelectValue placeholder="اختر نوع الجسم" />
           </SelectTrigger>
@@ -225,7 +294,7 @@ const RegisterPage = ({ setUser }) => {
       {/* Skin Tone */}
       <div>
         <label className="block text-sm font-medium mb-2">لون البشرة</label>
-        <Select value={formData.skinTone} onValueChange={(value) => setFormData({...formData, skinTone: value})}>
+        <Select value={formData.skinTone} onValueChange={(value) => setFormData({...formData, skinTone: value})} required>
           <SelectTrigger>
             <SelectValue placeholder="اختر لون البشرة" />
           </SelectTrigger>
@@ -247,7 +316,7 @@ const RegisterPage = ({ setUser }) => {
       {/* Style */}
       <div>
         <label className="block text-sm font-medium mb-2">الأسلوب المفضل</label>
-        <Select value={formData.style} onValueChange={(value) => setFormData({...formData, style: value})}>
+        <Select value={formData.style} onValueChange={(value) => setFormData({...formData, style: value})} required>
           <SelectTrigger>
             <SelectValue placeholder="اختر الأسلوب" />
           </SelectTrigger>
@@ -265,7 +334,7 @@ const RegisterPage = ({ setUser }) => {
       {/* Budget */}
       <div>
         <label className="block text-sm font-medium mb-2">الميزانية الشهرية</label>
-        <Select value={formData.budget} onValueChange={(value) => setFormData({...formData, budget: value})}>
+        <Select value={formData.budget} onValueChange={(value) => setFormData({...formData, budget: value})} required>
           <SelectTrigger>
             <SelectValue placeholder="اختر الميزانية" />
           </SelectTrigger>
@@ -306,6 +375,13 @@ const RegisterPage = ({ setUser }) => {
           <p className="text-gray-600">انضم إلى موضة AI واحصل على توصيات مخصصة</p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
         {/* Progress Indicator */}
         <div className="flex items-center justify-center mb-6">
           {[1, 2, 3].map((stepNumber) => (
@@ -341,6 +417,7 @@ const RegisterPage = ({ setUser }) => {
               variant="outline" 
               onClick={() => setStep(step - 1)}
               className="flex-1"
+              disabled={loading}
             >
               السابق
             </Button>
@@ -370,4 +447,3 @@ const RegisterPage = ({ setUser }) => {
 };
 
 export default RegisterPage;
-
