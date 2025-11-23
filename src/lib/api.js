@@ -6,6 +6,8 @@ export const registerUser = async (formData) => {
         const response = await fetch(`${API_BASE_URL}/api/register/`, {
             method: 'POST',
             body: formData, // FormData for file upload
+            // لا نحدد Content-Type هنا، المتصفح يحددها تلقائيًا لـ FormData مع boundary
+
         });
         if (!response.ok) {
             const errorData = await response.json();
